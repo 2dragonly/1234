@@ -1,0 +1,32 @@
+{
+	"exclude": ["node_modules"],
+	"include": ["src", "environment.d.ts"],
+	"compilerOptions": {
+		"typeRoots": ["node_modules/@types"],
+		"lib": ["ESNext"],
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "Node",
+		"strict": true,
+		"importHelpers": true,
+		"esModuleInterop": true,
+
+		"removeComments": true,
+		"isolatedModules": true,
+		"resolveJsonModule": true,
+		"useDefineForClassFields": true,
+		"allowSyntheticDefaultImports": true,
+		"forceConsistentCasingInFileNames": true,
+
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+
+		"baseUrl": "src",
+		"outDir": "dist",
+		"paths": {
+			".../*": ["../*"]
+		}
+	}
+}
