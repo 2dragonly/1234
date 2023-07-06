@@ -43,62 +43,73 @@ export const addListener = function <K extends keyof ClientEvents>(
 	listener: (...args: ClientEvents[K]) => Awaitable<any>,
 	once = false,
 ) {
-	if (client)
-		client[once ? "once" : "on"](event, async (...args) => {
-			if (args[0] instanceof Message) {
-				const regex = new RegExp(`<[@]?${args[0].client.user?.id}+>`);
+	if (!client) return;
 
-				args[0].isClientMention = false;
-				if (args[0].mentions.repliedUser?.id === args[0].client.user?.id) {
-					args[0].args = args[0].content.trim().split(/ +/g) as string[];
-					args[0].commandName = args[0].args.shift()?.toLowerCase() ?? "";
-					args[0].isClientMention = true;
-				} else if (regex.test(args[0].content)) {
-					const _args = args[0].content.replace(regex, "").trim().split(/ +/g) as string[];
-					args[0].commandName = _args.shift()?.toLowerCase() ?? "";
-					args[0].args = _args;
-					args[0].isClientMention = true;
-				}
+	client[once ? "once" : "on"](event, async (...args) => {
+		const message = args[0] as Message;
+		const interaction = args[0] as Interaction;
+
+		if (message instanceof Message) {
+			const regex = new RegExp(`<[@]?${message.client.user?.id}+>`);
+
+			message.isClientMention = false;
+
+			if (message.mentions.repliedUser?.id === message.client.user?.id) {
+				message.args = message.content.trim().split(/ +/g) as string[];
+				message.commandName = message.args.shift()?.toLowerCase() ?? "";
+				message.isClientMention = true;
+			} else if (regex.test(message.content)) {
+				const _args = message.content.replace(regex, "").trim().split(/ +/g) as string[];
+				message.commandName = _args.shift()?.toLowerCase() ?? "";
+				message.args = _args;
+				message.isClientMention = true;
 			}
+			args[0] = message;
+		}
 
-			try {
-				await listener?.call(client, ...args);
-			} catch (error) {
-				console.error(`An error occurred while calling the listener`, { error });
+		try {
+			await listener?.call(client, ...args);
+		} catch (error) {
+			console.error(`An error occurred while calling the '${event}' listener`, { error });
 
-				const arg = args[0];
-				if (arg instanceof Message) {
-					arg.reply({
-						content: "An error occurred! Please try again later.",
-					});
-				} else {
-					if (typeof arg === "object" && "inCachedGuild" in arg! && !arg?.inCachedGuild()) return;
-					const interaction = arg as Interaction;
-					//@ts-ignore
-					switch (interaction?.type) {
-						// Command
-						case InteractionType.ApplicationCommand:
-						case InteractionType.MessageComponent:
-						case InteractionType.ModalSubmit:
-							{
-								if (!interaction.replied) {
-									if (interaction.deferred) {
-										interaction.editReply({
-											content: "An error occurred! Please try again later.",
-										});
-									} else {
-										interaction.reply({
-											ephemeral: true,
-											content: "An error occurred! Please try again later.",
-										});
-									}
+			if (message instanceof Message) {
+				message.reply({
+					content: "An error occurred! Please try again later.",
+				});
+			} else {
+				if (
+					typeof interaction === "object" &&
+					"inCachedGuild" in interaction! &&
+					!interaction?.inCachedGuild()
+				) {
+					return;
+				}
+
+				//@ts-ignore
+				switch (interaction?.type) {
+					// Command
+					case InteractionType.ApplicationCommand:
+					case InteractionType.MessageComponent:
+					case InteractionType.ModalSubmit:
+						{
+							if (!interaction.replied) {
+								if (interaction.deferred) {
+									interaction.editReply({
+										content: "An error occurred! Please try again later.",
+									});
+								} else {
+									interaction.reply({
+										ephemeral: true,
+										content: "An error occurred! Please try again later.",
+									});
 								}
 							}
-							break;
-						default:
-							break;
-					}
+						}
+						break;
+					default:
+						break;
 				}
 			}
-		});
+		}
+	});
 };

@@ -9,30 +9,27 @@ const changeImportStatementsInFile = (filePath) => {
 		(_, p1, p2, p3) => {
 			if (p2.endsWith(".ts") || p2.endsWith(".js")) {
 				return `${p1}${p2.replace(/\.[tj]s$/, ".js")}${p3}`;
-			} else {
-				const resolvedPath = resolve(dirname(filePath), p2);
-				const extension =
-					existsSync(resolvedPath) && lstatSync(resolvedPath).isDirectory() ? "/index.js" : ".js";
-				p2 =
-					existsSync(`${resolvedPath}${extension}`) && lstatSync(`${resolvedPath}${extension}`).isFile()
-						? `${p2}${extension}`
-						: p2;
-				return `${p1}${p2}${p3}`;
 			}
-		}
+			const resolvedPath = resolve(dirname(filePath), p2);
+			const extension = existsSync(resolvedPath) && lstatSync(resolvedPath).isDirectory() ? "/index.js" : ".js";
+			const fullFilePath = `${resolvedPath}${extension}`;
+			p2 = existsSync(fullFilePath) && lstatSync(fullFilePath).isFile() ? `${p2}${extension}` : p2;
+			return `${p1}${p2}${p3}`;
+		},
 	);
 	writeFileSync(filePath, modifiedContent, "utf8");
 };
 
 const changeImportStatementsInDirectory = (dir) => {
-	readdirSync(dir).forEach((file) => {
+	const files = readdirSync(dir);
+	for (const file of files) {
 		const filePath = join(dir, file);
 		if (lstatSync(filePath).isDirectory()) {
 			changeImportStatementsInDirectory(filePath);
 		} else {
 			changeImportStatementsInFile(filePath);
 		}
-	});
+	}
 };
 
 changeImportStatementsInDirectory("dist");
