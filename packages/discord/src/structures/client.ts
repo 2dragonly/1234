@@ -62,10 +62,11 @@ export default class Client extends Bot {
 	}
 
 	async loadAll() {
-		for (const filename of glob.sync("commands/**/*.{js,ts}", { cwd: resolve(__dirname, "..") })) {
+		const commandFiles = glob.sync("commands/**/*.{js,ts}", { cwd: resolve(__dirname, "..") });
+		for (const filename of commandFiles) {
 			try {
 				const filepath = resolve(__dirname, "..", filename);
-				const command: Command = (await import(filepath)).default;
+				const { default: command } = await import(filepath);
 				if (!(command instanceof Command)) continue;
 
 				command.connect(this);
@@ -75,11 +76,12 @@ export default class Client extends Bot {
 			}
 		}
 
-		for (const filename of glob.sync("events/**/*.{js,ts}", { cwd: resolve(__dirname, "..") })) {
+		const eventFiles = glob.sync("events/**/*.{js,ts}", { cwd: resolve(__dirname, "..") });
+		for (const filename of eventFiles) {
 			try {
 				const filepath = resolve(__dirname, "..", filename);
-				const data = (await import(filepath)).default;
-				const events: Event<any>[] = Array.isArray(data) ? [...data] : [data];
+				const { default: data } = await import(filepath);
+				const events = Array.isArray(data) ? [...data] : [data];
 				for (const event of events) {
 					if (!(event instanceof Event)) continue;
 					addListener(this, event.data.name, event.data.execute, event.data.name);
