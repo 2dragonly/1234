@@ -1,6 +1,5 @@
 const { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync } = require("fs");
 const { join, dirname, resolve, extname } = require("path");
-const { outDir } = require("../tsconfig.json").compilerOptions;
 
 const changeImportStatementsInFile = (filePath) => {
 	if (extname(filePath) !== ".js") return;
@@ -20,7 +19,7 @@ const changeImportStatementsInFile = (filePath) => {
 						: p2;
 				return `${p1}${p2}${p3}`;
 			}
-		},
+		}
 	);
 	writeFileSync(filePath, modifiedContent, "utf8");
 };
@@ -36,4 +35,4 @@ const changeImportStatementsInDirectory = (dir) => {
 	});
 };
 
-changeImportStatementsInDirectory(outDir);
+changeImportStatementsInDirectory("dist");

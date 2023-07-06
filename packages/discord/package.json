@@ -2,9 +2,9 @@
 	"type": "module",
 	"main": "src/index.ts",
 	"scripts": {
-		"build": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json && node scripts/change-import-statements.cjs",
+		"build": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json && node ../../scripts/change-import-statements.cjs",
 		"start": "npx prisma generate && NODE_ENV=production node dist/index.js",
-		"dev": "npx prisma generate && pnpm build && NODE_ENV=development tsx watch src/index.ts"
+		"dev": "npx prisma generate && NODE_ENV=development tsx watch src/index.ts"
 	},
 	"dependencies": {
 		"@discordjs/builders": "1.6.3",
