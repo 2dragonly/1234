@@ -42,7 +42,7 @@ export default class Command<N extends string = string, D extends string = strin
 		button?: (this: Command<N, D>, interaction: ButtonInteraction) => Awaitable<void>;
 		contextMenu?: (
 			this: Command<N, D>,
-			interaction: MessageContextMenuCommandInteraction | UserContextMenuCommandInteraction
+			interaction: MessageContextMenuCommandInteraction | UserContextMenuCommandInteraction,
 		) => Awaitable<void>;
 		selectMenu?: (this: Command<N, D>, interaction: AnySelectMenuInteraction) => Awaitable<void>;
 		modalSubmit?: (this: Command<N, D>, interaction: ModalSubmitInteraction) => Awaitable<void>;
@@ -85,12 +85,14 @@ export default class Command<N extends string = string, D extends string = strin
 	}
 
 	setExecutor(executor: Command<N, D>["executor"]) {
-		if (typeof executor.button === "function") this.executor.button = executor.button;
-		if (typeof executor.contextMenu === "function") this.executor.contextMenu = executor.contextMenu;
-		if (typeof executor.selectMenu === "function") this.executor.selectMenu = executor.selectMenu;
-		if (typeof executor.modalSubmit === "function") this.executor.modalSubmit = executor.modalSubmit;
-		if (typeof executor.interaction === "function") this.executor.interaction = executor.interaction;
-		if (typeof executor.message === "function") this.executor.message = executor.message;
+		const { button, contextMenu, selectMenu, modalSubmit, interaction, message } = executor ?? {};
+
+		if (typeof button === "function") this.executor.button = button;
+		if (typeof contextMenu === "function") this.executor.contextMenu = contextMenu;
+		if (typeof selectMenu === "function") this.executor.selectMenu = selectMenu;
+		if (typeof modalSubmit === "function") this.executor.modalSubmit = modalSubmit;
+		if (typeof interaction === "function") this.executor.interaction = interaction;
+		if (typeof message === "function") this.executor.message = message;
 
 		return this;
 	}
@@ -120,24 +122,27 @@ export default class Command<N extends string = string, D extends string = strin
 			type: ApplicationCommandType.ChatInput,
 			...(this.__options ? { options: this.__options } : {}),
 		};
-		slash.options;
 		return {
 			name: this.name,
 			description: this.description,
 			slash,
-			events: [...this.__events.values()],
+			events: Array.from(this.__events.values()),
 		};
 	}
 
 	useEvent<K extends keyof ClientEvents>(event: EventOptions<K>) {
-		const events = this.__events.get(event.name) || [];
-		this.__events.set(event.name, [...events, new Event(event as any)]);
+		if (!this.__events.has(event.name)) this.__events.set(event.name, []);
+
+		const events = this.__events.get(event.name)!;
+		events.push(new Event(event) as any);
+		this.__events.set(event.name, events);
 
 		return this;
 	}
 
 	isTriggered(find: (commandName: string) => boolean) {
-		const triggeredCommandName = [...commands.keys()].find(find);
+		const commandKeys = Array.from(commands.keys());
+		const triggeredCommandName = commandKeys.find(find);
 		return triggeredCommandName === this.name;
 	}
 

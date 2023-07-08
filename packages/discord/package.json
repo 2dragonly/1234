@@ -8,8 +8,9 @@
 	},
 	"dependencies": {
 		"@discordjs/builders": "1.6.3",
-		"@lazuee/poe.js": "0.1.7",
+		"@lazuee/poe.js": "0.1.8",
 		"@prisma/client": "4.16.1",
+		"@vscode/vscode-languagedetection": "1.0.22",
 		"axios": "1.4.0",
 		"captcha-canvas": "3.2.1",
 		"discord.js": "14.11.0",

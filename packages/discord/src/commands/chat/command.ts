@@ -8,11 +8,13 @@ import {
 	Message,
 	ThreadAutoArchiveDuration,
 } from "discord.js";
+import { readFile } from "fs/promises";
+import { dirname, join } from "path";
 import { SetIntervalAsyncTimer, clearIntervalAsync, setIntervalAsync } from "set-interval-async";
 
+import { detectLanguage, setActive } from ".../utils";
 import Command from "../../structures/command";
 import commands from "../../structures/store/command";
-import { setActive } from "../../utils";
 import { poes, send_message } from "./poe";
 
 const messagesClient: Record<
@@ -189,33 +191,47 @@ async function getHistory(message: Message, conversation: Conversation[] = []): 
 }
 
 async function chat(message: Message, history: Conversation[], key: string) {
+	const __dirname = dirname(new URL(import.meta.url).pathname);
+	const prompt = await readFile(join(__dirname, "prompt.md"), "utf8");
 	const conversation: Conversation[] = [
 		{
 			role: "system",
-			content: `
-You are ${message.client.user.username}. A chatbot designed to help Discord users with their coding needs, questions, or general conversation. You cannot add comments to code - never adding any comments.
-
-You'll respond concisely while maintaining proper language etiquette. If a user asks who you are or what you do, you may tell them. If a user asks you to explain a code or programming related script, you may explain it in detail providing steps to each code block.
-
-You are familiar with a lot of coding languages, and are eager to demonstrate this. When asked for code, use triple backticks with the appropriate suffix, e.g. 'md', 'ts' 'csharp' and so on.
-`,
+			content: prompt.replaceAll(/bot_name/g, message.client.user.username),
 		},
 	];
 
-	const formatContent = (content: string) =>
-		content.replace(/([\n\r]{2,})(?=[^\n\r]*```[\s\S]*?```)|([\n\r]{2,})(?=[^\n\r])/g, "\n");
+	const addCodeLanguage = async (content: string) => {
+		const codeBlockRegex = /`{3}([\S]+)?\n([\s\S]*?)\n`{3}/g;
+
+		let match;
+		while ((match = codeBlockRegex.exec(content))) {
+			const [codeblock, suffix, code] = match;
+			if (suffix) continue;
+
+			const newSuffix = await detectLanguage(code);
+			const newCodeBlock = codeblock.replace(/`{3}([\S]+)?\n/, "```" + newSuffix + "\n");
+			content = content.slice(0, match.index) + newCodeBlock + content.slice(match.index + match[0].length);
+		}
+
+		return content;
+	};
+	const formatContent = async (content: string) => {
+		content = await addCodeLanguage(content);
+		content = content.replace(/([\n\r]{2,})(?=[^\n\r]*```[\s\S]*?```)|([\n\r]{2,})(?=[^\n\r])/g, "\n");
+
+		return content;
+	};
 	const editMessage = async (content: string, isLoading = true) => {
-		content = formatContent(content);
-		content += isLoading ? loading : "";
+		content = await formatContent(content);
+		content += isLoading ? "\n" + loading : "";
 		await message.channel.messages.cache.get(messagesClient[key].message_ids.at(-1)!)?.edit(content);
 	};
 	const sendMessage = async (content: string, isLoading = true) => {
-		content = formatContent(content);
+		content = await formatContent(content);
 		content += isLoading ? loading : "";
 		const _message = await message.channel.send(content);
 		messagesClient[key].message_ids.push(_message.id);
 	};
-
 	const _message = await message.reply(loading + "ㅤ");
 	await _message?.react("🔁");
 	await _message?.react("❌");
@@ -233,7 +249,7 @@ You are familiar with a lot of coding languages, and are eager to demonstrate th
 			nextText = "";
 
 			let content = currentText.replace(/[ \t\r\n]+$/g, "");
-			const lastCodeblock = content.match(/`{3}(?:[\S]+)?\n([\s\S]+)(?:\n`{3}|$)/g)?.pop() ?? null;
+			const lastCodeblock = content.match(/`{3}([\S]+)?\n([\s\S]*?)(?:\n`{3}|$)/g)?.pop() ?? null;
 			const noClosingCodeblock = lastCodeblock?.match(/`{3}/g)?.length === 1;
 			const lastLine =
 				content
@@ -254,8 +270,12 @@ You are familiar with a lot of coding languages, and are eager to demonstrate th
 					const nextContent = content.substring(content.indexOf(lastCodeblock));
 					currentText = currentText.substring(currentText.indexOf(lastCodeblock));
 					await sendMessage(nextContent);
+				} else if (noClosingCodeblock && content.startsWith("```")) {
+					console.log(content);
+					throw new Error("Error");
 				} else {
 					const prevContent = content.substring(0, content.indexOf(lastLine));
+					if (prevContent.length <= 0) return console.log(content);
 					await editMessage(prevContent, false);
 					const nextContent = content.substring(content.indexOf(lastLine));
 					currentText = currentText.substring(currentText.indexOf(lastLine));
@@ -287,6 +307,30 @@ You are familiar with a lot of coding languages, and are eager to demonstrate th
 			);
 		}
 	}, 1000);
+
+	// async function streamMarkdownFile(filePath: string, lineCallback: (line: string) => Promise<void>) {
+	// 	try {
+	// 		// Read the markdown file into a buffer
+	// 		const buffer = await fs.promises.readFile(filePath);
+
+	// 		// Convert the buffer to a string and split it into individual lines
+	// 		const lines = buffer.toString().split("");
+
+	// 		// Loop through each line
+	// 		for (const line of lines) {
+	// 			// Call the lineCallback function with the current line
+	// 			await lineCallback(line);
+	// 		}
+	// 	} catch (err) {}
+	// }
+
+	// streamMarkdownFile("./src/test.md", async (line) => {
+	// 	// Process each line here
+	// 	if (typeof nextText !== "string") nextText = "";
+	// 	nextText += line;
+
+	// 	await new Promise((resolve) => setTimeout(resolve, 50));
+	// });
 
 	await send_message(conversation.concat(history), {
 		withChatBreak: true,

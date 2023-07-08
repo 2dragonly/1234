@@ -1,33 +1,14 @@
+import detect from "@vscode/vscode-languagedetection";
 import { Awaitable, Client, ClientEvents, Interaction, InteractionType, Message } from "discord.js";
 
 import store from "../structures/store";
 
-type Func = () => Promise<void>;
-type ErrorHandler = (error: Error, attempt: number) => Promise<boolean>;
-type ExhaustedHandler = (error: Error) => Promise<void>;
+const modulOperations = new detect.ModelOperations();
+export const detectLanguage = async (code: string) => {
+	const result = await modulOperations.runModel(code);
+	const lang = result[0]?.languageId;
 
-export const withRetry = async (
-	func: Func,
-	errorHandler: ErrorHandler,
-	exhaustedHandler: ExhaustedHandler,
-	maxAttempts: number = 5,
-	retryDelay: number = 5000,
-): Promise<void> => {
-	let attempt = 0;
-	while (attempt < maxAttempts) {
-		attempt += 1;
-		try {
-			await func();
-			break;
-		} catch (error: any) {
-			const shouldRetry = await errorHandler(error, attempt);
-			if (!shouldRetry) {
-				await exhaustedHandler(error);
-				break;
-			}
-			await new Promise((resolve) => setTimeout(resolve, retryDelay));
-		}
-	}
+	return lang ?? "";
 };
 
 export const setActive = (client: Client, active = true) => {

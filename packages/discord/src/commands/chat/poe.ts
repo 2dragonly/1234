@@ -5,15 +5,14 @@ const tokens = process.env["POE_TOKENS"]?.split("|")?.filter((x) => typeof x ===
 export const poes = new Map<string, Poe>();
 
 export const initialize = async () => {
-	for (let i = 0; i < tokens.length; i++) {
-		const token = tokens[i];
+	for (const token of tokens) {
 		const poe = new Poe({
-			token: token,
+			token,
 			displayName: "Sage",
 		});
 
 		console.clear();
-		console.info(`Initializing Poe${".".repeat(i + 1)}`);
+		console.info(`Initializing Poe${".".repeat(tokens.indexOf(token) + 1)}`);
 		try {
 			await poe.initialize();
 			poes.set(token, poe);
@@ -22,23 +21,27 @@ export const initialize = async () => {
 };
 
 export const send_message: Poe["send_message"] = async (...args) => {
-	return new Promise((resolve, reject) => {
-		for (const poe of [...poes.values()]) {
-			if (!poe.pendingCount) {
-				poe.send_message(...args)
-					.then(resolve)
-					.catch(reject);
-				return;
+	const sortedPoes = [...poes.values()].sort((a, b) => a.pendingCount - b.pendingCount);
+
+	for (const poe of sortedPoes) {
+		if (!poe.pendingCount) {
+			try {
+				const result = await poe.send_message(...args);
+				return result;
+			} catch (error) {
+				throw error;
 			}
 		}
+	}
 
-		for (const poe of [...poes.values()].sort((a, b) => a.pendingCount - b.pendingCount)) {
-			poe.send_message(...args)
-				.then(resolve)
-				.catch(reject);
-			return;
+	for (const poe of sortedPoes) {
+		try {
+			const result = await poe.send_message(...args);
+			return result;
+		} catch (error) {
+			throw error;
 		}
+	}
 
-		reject(new Error("No poe has been settled"));
-	});
+	throw new Error("No poe has been settled");
 };
