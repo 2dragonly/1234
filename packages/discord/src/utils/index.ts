@@ -3,12 +3,33 @@ import { Awaitable, Client, ClientEvents, Interaction, InteractionType, Message 
 
 import store from "../structures/store";
 
-const modulOperations = new detect.ModelOperations();
 export const detectLanguage = async (code: string) => {
-	const result = await modulOperations.runModel(code);
-	const lang = result[0]?.languageId;
+	const modulOperations = new detect.ModelOperations();
+	const timeout = new Promise((resolve) => {
+		setTimeout(() => resolve("timeout"), 1000);
+	});
+	const run = modulOperations.runModel(code);
+	const result = (await Promise.race([timeout, run])) as detect.ModelResult[];
 
-	return lang ?? "";
+	return result[0]?.languageId ?? "";
+};
+
+export const splitMessage = (message: string, maxLength = 1800) => {
+	const lines = message.split("\n");
+	const chunks: string[][] = [];
+
+	let currentChunk: string[] = [];
+	for (const line of lines) {
+		if (currentChunk.join("\n").length + line.length >= maxLength) {
+			chunks.push(currentChunk);
+			currentChunk = [];
+		}
+		currentChunk.push(line);
+	}
+	chunks.push(currentChunk);
+
+	console.log(chunks.length);
+	return chunks.map((chunk) => chunk.join("\n"));
 };
 
 export const setActive = (client: Client, active = true) => {

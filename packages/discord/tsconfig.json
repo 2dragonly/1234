@@ -24,6 +24,7 @@
 		"noFallthroughCasesInSwitch": true,
 
 		"baseUrl": "src",
+		"outDir": "dist",
 		"paths": {
 			".../*": ["../*", "./*"]
 		}

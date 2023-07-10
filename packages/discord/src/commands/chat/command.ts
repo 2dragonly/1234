@@ -12,10 +12,9 @@ import { readFile } from "fs/promises";
 import { dirname, join } from "path";
 import { SetIntervalAsyncTimer, clearIntervalAsync, setIntervalAsync } from "set-interval-async";
 
-import { detectLanguage, setActive } from ".../utils";
+import { detectLanguage, setActive, splitMessage } from ".../utils";
 import Command from "../../structures/command";
 import commands from "../../structures/store/command";
-import { poes, send_message } from "./poe";
 
 const messagesClient: Record<
 	string,
@@ -23,7 +22,7 @@ const messagesClient: Record<
 > = {};
 
 const loading = "<a:loading:1118947021508853904>";
-const maxLength = 1800 + loading.length;
+const maxLength = 1200;
 
 export default new Command("gpt", "Ask me anything")
 	.setExecutor({
@@ -152,10 +151,6 @@ export default new Command("gpt", "Ask me anything")
 			if (message.isClientMention) message.content = `${message.commandName} ${message.args.join(" ")}`;
 			if ([...commands.values()].some((command) => command.isTriggered((name) => name === message.commandName)))
 				return;
-			if ([...poes.values()].length <= 0) {
-				message.reply("Sorry, it appears that I have run out of tokens.");
-				return;
-			}
 
 			const key = String.fromCharCode(Math.floor(Math.random() * 26) + 97) + Date.now().toString();
 			const history = await getHistory(message);
@@ -201,16 +196,21 @@ async function chat(message: Message, history: Conversation[], key: string) {
 	];
 
 	const addCodeLanguage = async (content: string) => {
-		const codeBlockRegex = /`{3}([\S]+)?\n([\s\S]*?)\n`{3}/g;
+		const regex = /`{3}([\S]+)?\n([\s\S]*?)\n`{3}/g;
+		let match = regex.exec(content);
 
-		let match;
-		while ((match = codeBlockRegex.exec(content))) {
-			const [codeblock, suffix, code] = match;
-			if (suffix) continue;
+		while (match !== null) {
+			const [codeblock, prefix, code] = match;
+			if (prefix) {
+				match = regex.exec(content);
+				continue;
+			}
 
-			const newSuffix = await detectLanguage(code);
-			const newCodeBlock = codeblock.replace(/`{3}([\S]+)?\n/, "```" + newSuffix + "\n");
+			const newPrefix = await detectLanguage(code);
+			const newCodeBlock = codeblock.replace(/`{3}([\S]+)?\n/, "```" + newPrefix + "\n");
 			content = content.slice(0, match.index) + newCodeBlock + content.slice(match.index + match[0].length);
+
+			match = regex.exec(content);
 		}
 
 		return content;
@@ -223,12 +223,12 @@ async function chat(message: Message, history: Conversation[], key: string) {
 	};
 	const editMessage = async (content: string, isLoading = true) => {
 		content = await formatContent(content);
-		content += isLoading ? "\n" + loading : "";
+		content += isLoading ? " " + loading : "";
 		await message.channel.messages.cache.get(messagesClient[key].message_ids.at(-1)!)?.edit(content);
 	};
 	const sendMessage = async (content: string, isLoading = true) => {
 		content = await formatContent(content);
-		content += isLoading ? loading : "";
+		content += isLoading ? " " + loading : "";
 		const _message = await message.channel.send(content);
 		messagesClient[key].message_ids.push(_message.id);
 	};
@@ -258,21 +258,33 @@ async function chat(message: Message, history: Conversation[], key: string) {
 					?.pop() ?? "";
 
 			if (noClosingCodeblock) content = content + "\n```";
-			else content = content + " ";
 
 			if (content.length >= maxLength) {
 				await message.channel.messages.cache
 					.get(messagesClient[key].message_ids.at(-1)!)
 					?.reactions?.removeAll();
-				if (noClosingCodeblock) {
+				if (noClosingCodeblock && !/^`{3}/.test(content.trim())) {
 					const prevContent = content.substring(0, content.indexOf(lastCodeblock));
 					await editMessage(prevContent, false);
 					const nextContent = content.substring(content.indexOf(lastCodeblock));
 					currentText = currentText.substring(currentText.indexOf(lastCodeblock));
 					await sendMessage(nextContent);
-				} else if (noClosingCodeblock && content.startsWith("```")) {
-					console.log(content);
-					throw new Error("Error");
+				} else if (noClosingCodeblock && /^`{3}/.test(content.trim())) {
+					console.log("no closing codeblock found with starting ```");
+					let [, prefix] = content.match(/`{3}([\S]+)?\n/) ?? [];
+					if (!prefix) prefix = await detectLanguage(content);
+					content = content.replace(/```$/g, "");
+
+					const [prevContent, ...restContent] = splitMessage(content, maxLength);
+					await editMessage(prevContent + "\n```", false);
+					let nextContent = "";
+					for (let i = 0; i < restContent.length; i++) {
+						const isLastContent = i === restContent.length - 1;
+						nextContent = "";
+						nextContent = "```" + prefix + "\n" + restContent[i] + isLastContent ? "" : "\n```";
+						await sendMessage(nextContent, isLastContent);
+					}
+					currentText = nextContent;
 				} else {
 					const prevContent = content.substring(0, content.indexOf(lastLine));
 					if (prevContent.length <= 0) return console.log(content);
@@ -308,40 +320,32 @@ async function chat(message: Message, history: Conversation[], key: string) {
 		}
 	}, 1000);
 
-	// async function streamMarkdownFile(filePath: string, lineCallback: (line: string) => Promise<void>) {
-	// 	try {
-	// 		// Read the markdown file into a buffer
-	// 		const buffer = await fs.promises.readFile(filePath);
+	setActive(message.client);
+	try {
+		// Read the markdown file into a buffer
+		const buffer = await readFile("./src/test.md");
 
-	// 		// Convert the buffer to a string and split it into individual lines
-	// 		const lines = buffer.toString().split("");
+		// Convert the buffer to a string and split it into individual lines
+		const lines = buffer.toString().split("");
 
-	// 		// Loop through each line
-	// 		for (const line of lines) {
-	// 			// Call the lineCallback function with the current line
-	// 			await lineCallback(line);
-	// 		}
-	// 	} catch (err) {}
-	// }
-
-	// streamMarkdownFile("./src/test.md", async (line) => {
-	// 	// Process each line here
-	// 	if (typeof nextText !== "string") nextText = "";
-	// 	nextText += line;
-
-	// 	await new Promise((resolve) => setTimeout(resolve, 50));
-	// });
-
-	await send_message(conversation.concat(history), {
-		withChatBreak: true,
-		onRunning: () => {
-			setActive(message.client);
-		},
-		onTyping: async (msg) => {
+		// Loop through each line
+		for (const line of lines) {
+			// Process each line here
 			if (typeof nextText !== "string") nextText = "";
-			nextText += msg.text_new;
+			nextText += line;
 
-			await new Promise((resolve) => setTimeout(resolve, 200));
-		},
-	});
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+	} catch (error) {}
+
+	// await send_message(conversation.concat(history), {
+	// 	withChatBreak: true,
+	// 	onRunning: () => {},
+	// 	onTyping: async (msg) => {
+	// 		if (typeof nextText !== "string") nextText = "";
+	// 		nextText += msg.text_new;
+
+	// 		await new Promise((resolve) => setTimeout(resolve, 200));
+	// 	},
+	// });
 }
