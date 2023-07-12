@@ -8,7 +8,7 @@
 	},
 	"dependencies": {
 		"@discordjs/builders": "1.6.3",
-		"@lazuee/poe.js": "0.1.8",
+		"@lazuee/poe.js": "0.2.0",
 		"@prisma/client": "4.16.1",
 		"@vscode/vscode-languagedetection": "1.0.22",
 		"axios": "1.4.0",
@@ -16,7 +16,8 @@
 		"discord.js": "14.11.0",
 		"fast-glob": "3.2.12",
 		"set-interval-async": "3.0.3",
-		"skia-canvas": "1.0.1"
+		"skia-canvas": "1.0.1",
+		"strip-indent": "4.0.0"
 	},
 	"devDependencies": {
 		"@types/node": "20.3.2",

@@ -12,9 +12,10 @@ import { readFile } from "fs/promises";
 import { dirname, join } from "path";
 import { SetIntervalAsyncTimer, clearIntervalAsync, setIntervalAsync } from "set-interval-async";
 
-import { detectLanguage, setActive, splitMessage } from ".../utils";
+import { detectLanguage, setActive } from ".../utils";
 import Command from "../../structures/command";
 import commands from "../../structures/store/command";
+import { send_message } from "./poe";
 
 const messagesClient: Record<
 	string,
@@ -269,22 +270,6 @@ async function chat(message: Message, history: Conversation[], key: string) {
 					const nextContent = content.substring(content.indexOf(lastCodeblock));
 					currentText = currentText.substring(currentText.indexOf(lastCodeblock));
 					await sendMessage(nextContent);
-				} else if (noClosingCodeblock && /^`{3}/.test(content.trim())) {
-					console.log("no closing codeblock found with starting ```");
-					let [, prefix] = content.match(/`{3}([\S]+)?\n/) ?? [];
-					if (!prefix) prefix = await detectLanguage(content);
-					content = content.replace(/```$/g, "");
-
-					const [prevContent, ...restContent] = splitMessage(content, maxLength);
-					await editMessage(prevContent + "\n```", false);
-					let nextContent = "";
-					for (let i = 0; i < restContent.length; i++) {
-						const isLastContent = i === restContent.length - 1;
-						nextContent = "";
-						nextContent = "```" + prefix + "\n" + restContent[i] + isLastContent ? "" : "\n```";
-						await sendMessage(nextContent, isLastContent);
-					}
-					currentText = nextContent;
 				} else {
 					const prevContent = content.substring(0, content.indexOf(lastLine));
 					if (prevContent.length <= 0) return console.log(content);
@@ -321,31 +306,14 @@ async function chat(message: Message, history: Conversation[], key: string) {
 	}, 1000);
 
 	setActive(message.client);
-	try {
-		// Read the markdown file into a buffer
-		const buffer = await readFile("./src/test.md");
-
-		// Convert the buffer to a string and split it into individual lines
-		const lines = buffer.toString().split("");
-
-		// Loop through each line
-		for (const line of lines) {
-			// Process each line here
+	await send_message(conversation.concat(history), {
+		withChatBreak: true,
+		onRunning: () => {},
+		onTyping: async (msg) => {
 			if (typeof nextText !== "string") nextText = "";
-			nextText += line;
+			nextText += msg.text_new;
 
-			await new Promise((resolve) => setTimeout(resolve, 50));
-		}
-	} catch (error) {}
-
-	// await send_message(conversation.concat(history), {
-	// 	withChatBreak: true,
-	// 	onRunning: () => {},
-	// 	onTyping: async (msg) => {
-	// 		if (typeof nextText !== "string") nextText = "";
-	// 		nextText += msg.text_new;
-
-	// 		await new Promise((resolve) => setTimeout(resolve, 200));
-	// 	},
-	// });
+			await new Promise((resolve) => setTimeout(resolve, 200));
+		},
+	});
 }
