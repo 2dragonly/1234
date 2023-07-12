@@ -1,28 +1,34 @@
 {
-	"name": "project",
-	"version": "0.0.0",
-	"private": true,
+	"type": "module",
+	"main": "src/index.ts",
 	"scripts": {
-		"format": "prettier --ignore-path .gitignore --write . --ignore-unknown",
-		"clean": "lerna exec 'node ../../scripts/rm.mjs dist .turbo'",
-		"build": "turbo run build --remote-cache-timeout 60",
-		"dev": "turbo run dev --parallel",
-		"prepublishOnly": "turbo run build",
-		"git-reset": "git reset --hard HEAD",
-		"git-clean": "git clean -d -x -e node_modules -e packages -f",
-		"release": "git checkout master && git pull && lerna version prerelease --preid master --force-publish && release --pre --skip-questions --show-url"
+		"build": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json && node ../../scripts/change-import-statements.cjs",
+		"start": "npx prisma generate && NODE_ENV=production node dist/index.js",
+		"dev": "npx prisma generate && NODE_ENV=development tsx watch src/index.ts"
 	},
-	"workspaces": [
-		"packages/*"
-	],
+	"dependencies": {
+		"@discordjs/builders": "1.6.3",
+		"@lazuee/poe.js": "0.2.0",
+		"@prisma/client": "5.0.0",
+		"@vscode/vscode-languagedetection": "1.0.22",
+		"axios": "1.4.0",
+		"captcha-canvas": "3.2.1",
+		"discord.js": "14.11.0",
+		"fast-glob": "3.3.0",
+		"set-interval-async": "3.0.3",
+		"skia-canvas": "1.0.1",
+		"strip-indent": "4.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "20.4.1",
+		"dotenv": "16.3.1",
+		"prisma": "5.0.0",
+		"tsc-alias": "1.8.7",
+		"tslib": "2.6.0",
+		"tsx": "3.12.7",
+		"typescript": "5.1.6"
+	},
 	"engines": {
 		"node": ">=18.16.0"
-	},
-	"packageManager": "pnpm@8.3.1",
-	"dependencies": {
-		"@trivago/prettier-plugin-sort-imports": "4.1.1",
-		"lerna": "7.1.1",
-		"prettier": "3.0.0",
-		"turbo": "1.10.7"
 	}
 }
